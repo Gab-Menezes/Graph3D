@@ -1,1 +1,5 @@
 .vs/
+Debug/
+Release/
+Graph3D/Debug/
+Graph3D/Release/
