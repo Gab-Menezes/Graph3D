@@ -106,10 +106,10 @@ void Camera::KeyboardMove(float deltaTime)
 	//Update the position based on the key pressed
 	if (glfwGetKey(g_Window, GLFW_KEY_W) == GLFW_PRESS)
 		m_CamPos += camSpeed * m_CamFront;
-	else if (glfwGetKey(g_Window, GLFW_KEY_S) == GLFW_PRESS)
+	if (glfwGetKey(g_Window, GLFW_KEY_S) == GLFW_PRESS)
 		m_CamPos -= camSpeed * m_CamFront;
-	else if (glfwGetKey(g_Window, GLFW_KEY_A) == GLFW_PRESS)
+	if (glfwGetKey(g_Window, GLFW_KEY_A) == GLFW_PRESS)
 		m_CamPos -= glm::normalize(glm::cross(m_CamFront, m_CamUp)) * camSpeed;
-	else if (glfwGetKey(g_Window, GLFW_KEY_D) == GLFW_PRESS)
+	if (glfwGetKey(g_Window, GLFW_KEY_D) == GLFW_PRESS)
 		m_CamPos += glm::normalize(glm::cross(m_CamFront, m_CamUp)) * camSpeed;
 }

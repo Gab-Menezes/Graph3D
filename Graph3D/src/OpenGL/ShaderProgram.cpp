@@ -149,21 +149,29 @@ unsigned int ShaderProgram::CreateProgram(const std::string & vertexShader, cons
 
 unsigned int ShaderProgram::CompileShader(unsigned int type, const std::string & source)
 {
-	unsigned int shader = glCreateShader(type);
-	const char* src = source.c_str();
-	glShaderSource(shader, 1, &src, nullptr);
-	glCompileShader(shader);
-
-	//checks if the compilation failed
-	int success;
-	glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-	if (!success)
+	try
 	{
-		char infoLog[512];
-		glGetShaderInfoLog(shader, 512, nullptr, infoLog);
-		std::cout << "Failed to compile the shader:" << std::endl << infoLog << std::endl;
-		return 0;
-	}
+		unsigned int shader = glCreateShader(type);
+		const char* src = source.c_str();
+		glShaderSource(shader, 1, &src, nullptr);
+		glCompileShader(shader);
 
-	return shader;
+		//checks if the compilation failed
+		int success;
+		glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
+		if (!success)
+		{
+			char infoLog[512];
+			glGetShaderInfoLog(shader, 512, nullptr, infoLog);
+			std::cout << "Failed to compile the shader:" << std::endl << infoLog << std::endl;
+			return 0;
+		}
+
+		return shader;
+	}
+	catch (const std::exception& e)
+	{
+		std::cout << e.what() << std::endl;
+	}
+	return -1;
 }

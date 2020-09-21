@@ -24,9 +24,6 @@
     <ClCompile Include="src\Vendor\imgui\imgui.cpp">
       <Filter>Arquivos de Origem</Filter>
     </ClCompile>
-    <ClCompile Include="src\Vendor\imgui\imgui_demo.cpp">
-      <Filter>Arquivos de Origem</Filter>
-    </ClCompile>
     <ClCompile Include="src\Vendor\imgui\imgui_draw.cpp">
       <Filter>Arquivos de Origem</Filter>
     </ClCompile>
@@ -1261,5 +1258,7 @@
     <None Include="src\Vendor\glm\gtx\wrap.inl">
       <Filter>Arquivos de Cabeçalho</Filter>
     </None>
+    <None Include="Axis.glsl" />
+    <None Include="Graph3D.glsl" />
   </ItemGroup>
 </Project>

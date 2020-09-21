@@ -4,58 +4,66 @@
 
 extern exprtk::parser<float> g_Parser; //Global variable (defined at main.cpp)
 
-//void almost(float x, float y, float threshold)
-//{
-//	if (std::abs(x - y) <= threshold)
-//	{
-//		std::cout << "equal\n";
-//	}
-//
-//	/*if (std::abs(x) < 0.1f)
-//	{
-//		for (int i = -10; i <= 10; i++)
-//		{
-//			if (std::abs(y - (float)i) < 0.1f)
-//			{
-//				printf("Quase1\n");
-//				break;
-//			}
-//		}
-//	}
-//	else if (std::abs(y) < 0.1f)
-//	{
-//		for (int i = -10; i <= 10; i++)
-//		{
-//			if (std::abs(x - float(i)) < 0.1f)
-//			{
-//				printf("Quase2\n");
-//				break;
-//			}
-//		}
-//	}
-//	else
-//	{
-//		printf("Nao\n");
-//	}*/
-//}
-
-
 //Constructor
-Expression::Expression(const std::string& exp, const std::string& var1, const std::string& var2) :
-	m_StrExpression(exp), //m_StrExpression = exp
+Expression::Expression(std::string&& exp, const std::string& var1, const std::string& var2) :
+	m_StrExpression(std::move(exp)), //m_StrExpression = exp
 	m_VarName1(var1),
-	m_VarName2(var2),
-	m_Compiled(false)  //m_Compiled = false (when created the compilation status it's always false)
+	m_VarName2(var2)
 {
 	Compile(); //Call the Compile function
 }
 
-//Desdructor
-Expression::~Expression()
+Expression::Expression(const Expression& rhs)
 {
+	m_StrExpression = rhs.m_StrExpression;
+	m_VarName1 = rhs.m_VarName1;
+	m_VarName2 = rhs.m_VarName2;
+	m_Compiled = rhs.m_Compiled;
+	m_Value1 = rhs.m_Value1;
+	m_Value2 = rhs.m_Value2;
+	m_VarTable = rhs.m_VarTable;
+	m_Expression = rhs.m_Expression;
 }
 
-void Expression::SetExpression(const std::string & exp, const std::string& var1, const std::string& var2)
+Expression::Expression(Expression&& rhs) noexcept
+{
+	m_StrExpression = std::move(rhs.m_StrExpression);
+	m_VarName1 = std::move(rhs.m_VarName1);
+	m_VarName2 = std::move(rhs.m_VarName2);
+	m_Compiled = rhs.m_Compiled;
+	m_Value1 = rhs.m_Value1;
+	m_Value2 = rhs.m_Value2;
+	m_VarTable = std::move(rhs.m_VarTable);
+	m_Expression = std::move(rhs.m_Expression);
+}
+
+Expression & Expression::operator=(const Expression & rhs)
+{
+	m_Compiled = rhs.m_Compiled;
+	m_StrExpression = rhs.m_StrExpression;
+	m_VarName1 = rhs.m_VarName1;
+	m_VarName2 = rhs.m_VarName2;
+	m_Value1 = rhs.m_Value1;
+	m_Value2 = rhs.m_Value2;
+	m_VarTable = rhs. m_VarTable;
+	m_Expression = rhs.m_Expression;
+	return *this; //Return a dereferenced pointer
+}
+
+Expression& Expression::operator=(Expression&& rhs) noexcept
+{
+	m_StrExpression = std::move(rhs.m_StrExpression);
+	m_VarName1 = std::move(rhs.m_VarName1);
+	m_VarName2 = std::move(rhs.m_VarName2);
+	m_Compiled = rhs.m_Compiled;
+	m_Value1 = rhs.m_Value1;
+	m_Value2 = rhs.m_Value2;
+	m_VarTable = std::move(rhs.m_VarTable);
+	m_Expression = std::move(rhs.m_Expression);
+	return *this;
+}
+
+void Expression::SetExpression(const std::string& exp, const std::string& var1, const std::string& var2)
 {
 	m_StrExpression = exp; //Changes the m_StrExpression to the new mathematical expression
 	m_VarName1 = var1;
@@ -65,7 +73,7 @@ void Expression::SetExpression(const std::string & exp, const std::string& var1,
 	Compile(); //Call the Compile function
 }
 
-std::string Expression::GetStrExpression()
+std::string Expression::GetStrExpression() const
 {
 	return m_StrExpression; //Return the current mathematical expression in string format (m_StrExpression)
 }
@@ -75,21 +83,6 @@ bool Expression::IsCompiled() const
 	return m_Compiled; //Return the current state of the compilation (m_Compiled)
 }
 
-Expression & Expression::operator=(const Expression & rhs)
-{
-	//Make all member variables equals to the rhs member variables
-
-	m_Compiled = rhs.m_Compiled;
-	m_StrExpression = rhs.m_StrExpression;
-	m_VarName1 = rhs.m_VarName1;
-	m_VarName2 = rhs.m_VarName2;
-	m_Value1 = rhs.m_Value1;
-	m_Value2 = rhs.m_Value2;
-	m_VarTable = rhs. m_VarTable;
-	m_Expression = rhs.m_Expression;
-
-	return *this; //Return a dereferenced pointer
-}
 
 std::vector<float> Expression::Calculate(const glm::vec2& pos, unsigned int AreaSide, float step)
 {
@@ -99,7 +92,7 @@ std::vector<float> Expression::Calculate(const glm::vec2& pos, unsigned int Area
 		if (m_Compiled)
 		{
 			//unsigned int totalPoints = round(pow(AreaSide + 2, 2) / step);
-			unsigned int totalPoints = round(AreaSide/step) + 1;
+			unsigned int totalPoints = (unsigned int)round(AreaSide/step) + 1;
 			std::vector<float> xyz; //Creation of the xy vector
 			xyz.reserve(3 * totalPoints * totalPoints); //Reservation of space
 

@@ -9,11 +9,18 @@ class Plane3D
 {
 public:
 	Plane3D();
-	void Draw();
+	void Draw () const;
+	void ImGuiDraw();
 
 private:
-	std::unique_ptr<VertexArray> m_VAO;
-	std::unique_ptr<VertexBuffer> m_VBO;
-	std::unique_ptr<IndexBuffer> m_EBO;
-	std::unique_ptr<ShaderProgram> m_Shader;
+	std::unique_ptr<VertexArray> m_AxisVAO;
+	std::unique_ptr<VertexBuffer> m_AxisVBO;
+	std::unique_ptr<ShaderProgram> m_AxisShader;
+	bool m_Axis = true;
+
+	std::unique_ptr<VertexArray> m_PlaneVAO;
+	std::unique_ptr<VertexBuffer> m_PlaneVBO;
+	std::unique_ptr<IndexBuffer> m_PlaneEBO;
+	bool m_Plane = true, m_PlaneGrid = true;
+	glm::vec4 m_PlaneColor = glm::vec4(0.8f, 0.8f, 0.8f, .6f);
 };

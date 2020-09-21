@@ -1869,12 +1869,12 @@ namespace exprtk
 
             while ((end != itr) && (zero == (*itr))) ++itr;
 
-            unsigned int digit;
-
             while (end != itr)
             {
                // Note: For 'physical' superscalar architectures it
                // is advised that the following loop be: 4xPD1 and 1xPD2
+               unsigned int digit;
+
                #ifdef exprtk_enable_superscalar
                parse_digit_1(d)
                parse_digit_1(d)
@@ -1894,11 +1894,12 @@ namespace exprtk
             if ('.' == (*itr))
             {
                const Iterator curr = ++itr;
-               unsigned int digit;
                T tmp_d = T(0);
 
                while (end != itr)
                {
+                  unsigned int digit;
+
                   #ifdef exprtk_enable_superscalar
                   parse_digit_1(tmp_d)
                   parse_digit_1(tmp_d)
@@ -3174,7 +3175,7 @@ namespace exprtk
       namespace helper
       {
 
-         inline void dump(lexer::generator& generator)
+         inline void dump(const lexer::generator& generator)
          {
             for (std::size_t i = 0; i < generator.size(); ++i)
             {
@@ -4626,8 +4627,8 @@ namespace exprtk
 
          struct details
          {
-            details(const std::size_t& vsize,
-                    const unsigned int loop_batch_size = global_loop_batch_size)
+            explicit details(const std::size_t& vsize,
+                             const unsigned int loop_batch_size = global_loop_batch_size)
             : batch_size(loop_batch_size   ),
               remainder (vsize % batch_size),
               upper_bound(static_cast<int>(vsize - (remainder ? loop_batch_size : 0)))
@@ -4838,7 +4839,7 @@ namespace exprtk
 
          static inline void match_sizes(type& vds0, type& vds1)
          {
-            std::size_t size = min_size(vds0.control_block_,vds1.control_block_);
+            const std::size_t size = min_size(vds0.control_block_,vds1.control_block_);
             vds0.control_block_->size = size;
             vds1.control_block_->size = size;
          }
@@ -5576,7 +5577,7 @@ namespace exprtk
 
          typedef expression_node<T>* expression_ptr;
 
-         null_eq_node(expression_ptr brnch, const bool equality = true)
+         explicit null_eq_node(expression_ptr brnch, const bool equality = true)
          : branch_(brnch),
            branch_deletable_(branch_deletable(branch_)),
            equality_(equality)
@@ -8638,7 +8639,7 @@ namespace exprtk
                     range1(s1_r0, s1_r1, str1_base_ptr_->size())
                   )
                {
-                  std::size_t size = std::min((s0_r1 - s0_r0), (s1_r1 - s1_r0)) + 1;
+                  const std::size_t size = std::min((s0_r1 - s0_r0), (s1_r1 - s1_r0)) + 1;
 
                   std::copy(str1_base_ptr_->base() + s1_r0,
                             str1_base_ptr_->base() + s1_r0 + size,
@@ -11540,8 +11541,8 @@ namespace exprtk
          typedef std::vector<type_store_t>         typestore_list_t;
          typedef std::vector<range_data_type_t>        range_list_t;
 
-         generic_function_node(const std::vector<expression_ptr>& arg_list,
-                               GenericFunction* func = (GenericFunction*)(0))
+         explicit generic_function_node(const std::vector<expression_ptr>& arg_list,
+                                        GenericFunction* func = (GenericFunction*)(0))
          : function_(func),
            arg_list_(arg_list)
          {}
@@ -17702,7 +17703,7 @@ namespace exprtk
                     ('_' != symbol[i])
                   )
                {
-                  if (('.' == symbol[i]) && (i < (symbol.size() - 1)))
+                  if ((i < (symbol.size() - 1)) && ('.' == symbol[i]))
                      continue;
                   else
                      return false;
@@ -17728,7 +17729,7 @@ namespace exprtk
                     ('_' != symbol[i])
                   )
                {
-                  if (('.' == symbol[i]) && (i < (symbol.size() - 1)))
+                  if ((i < (symbol.size() - 1)) && ('.' == symbol[i]))
                      continue;
                   else
                      return false;
@@ -18119,7 +18120,7 @@ namespace exprtk
       }
 
       control_block* control_block_;
-      symtab_list_t      symbol_table_list_;
+      symtab_list_t  symbol_table_list_;
 
       friend class parser<T>;
       friend class expression_helper<T>;
@@ -21000,6 +21001,31 @@ namespace exprtk
          return reinterpret_cast<expression_node_ptr>(0);
       }
 
+      struct scoped_expression_delete
+      {
+         scoped_expression_delete(parser<T>& pr, expression_node_ptr& expr)
+         : delete_ptr(true),
+           parser_(pr),
+           expr_(expr)
+         {}
+
+        ~scoped_expression_delete()
+         {
+            if (delete_ptr)
+            {
+               free_node(parser_.node_allocator_, expr_);
+            }
+         }
+
+         bool delete_ptr;
+         parser<T>& parser_;
+         expression_node_ptr& expr_;
+
+      private:
+
+         scoped_expression_delete& operator=(const scoped_expression_delete&);
+      };
+
       template <typename Type, std::size_t N>
       struct scoped_delete
       {
@@ -21023,7 +21049,7 @@ namespace exprtk
             {
                for (std::size_t i = 0; i < N; ++i)
                {
-                  free_node(parser_.node_allocator_,p_[i]);
+                  free_node(parser_.node_allocator_, p_[i]);
                }
             }
          }
@@ -22357,66 +22383,83 @@ namespace exprtk
             return error_node();
          }
 
+         expression_node_ptr default_statement = error_node();
+
+         scoped_expression_delete defstmt_delete((*this), default_statement);
+
          for ( ; ; )
          {
-            if (!details::imatch("case",current_token().value))
-            {
-               set_error(
-                  make_error(parser_error::e_syntax,
-                             current_token(),
-                             "ERR079 - Expected either a 'case' or 'default' statement",
-                             exprtk_error_location));
-
-               return error_node();
-            }
-
-            next_token();
-
-            expression_node_ptr condition = parse_expression();
-
-            if (0 == condition)
-               return error_node();
-            else if (!token_is(token_t::e_colon))
-            {
-               set_error(
-                  make_error(parser_error::e_syntax,
-                             current_token(),
-                             "ERR080 - Expected ':' for case of switch statement",
-                             exprtk_error_location));
-
-               return error_node();
-            }
-
-            expression_node_ptr consequent = parse_expression();
-
-            if (0 == consequent)
-               return error_node();
-            else if (!token_is(token_t::e_eof))
-            {
-               set_error(
-                  make_error(parser_error::e_syntax,
-                             current_token(),
-                             "ERR081 - Expected ';' at end of case for switch statement",
-                             exprtk_error_location));
-
-               return error_node();
-            }
-
-            // Can we optimise away the case statement?
-            if (is_constant_node(condition) && is_false(condition))
-            {
-               free_node(node_allocator_,  condition);
-               free_node(node_allocator_, consequent);
-            }
-            else
-            {
-               arg_list.push_back( condition);
-               arg_list.push_back(consequent);
-            }
-
-            if (details::imatch("default",current_token().value))
+            if (details::imatch("case",current_token().value))
             {
                next_token();
+
+               expression_node_ptr condition = parse_expression();
+
+               if (0 == condition)
+                  return error_node();
+               else if (!token_is(token_t::e_colon))
+               {
+                  set_error(
+                     make_error(parser_error::e_syntax,
+                                current_token(),
+                                "ERR079 - Expected ':' for case of switch statement",
+                                exprtk_error_location));
+
+                  free_node(node_allocator_, condition);
+
+                  return error_node();
+               }
+
+               expression_node_ptr consequent = parse_expression();
+
+               if (0 == consequent)
+               {
+                  free_node(node_allocator_, condition);
+
+                  return error_node();
+               }
+               else if (!token_is(token_t::e_eof))
+               {
+                  set_error(
+                     make_error(parser_error::e_syntax,
+                                current_token(),
+                                "ERR080 - Expected ';' at end of case for switch statement",
+                                exprtk_error_location));
+
+                  free_node(node_allocator_,  condition);
+                  free_node(node_allocator_, consequent);
+
+                  return error_node();
+               }
+
+               // Can we optimise away the case statement?
+               if (is_constant_node(condition) && is_false(condition))
+               {
+                  free_node(node_allocator_,  condition);
+                  free_node(node_allocator_, consequent);
+               }
+               else
+               {
+                  arg_list.push_back( condition);
+                  arg_list.push_back(consequent);
+               }
+
+            }
+            else if (details::imatch("default",current_token().value))
+            {
+               if (0 != default_statement)
+               {
+                  set_error(
+                     make_error(parser_error::e_syntax,
+                                current_token(),
+                                "ERR081 - Multiple default cases for switch statement",
+                                exprtk_error_location));
+
+                  return error_node();
+               }
+
+               next_token();
+
                if (!token_is(token_t::e_colon))
                {
                   set_error(
@@ -22428,8 +22471,6 @@ namespace exprtk
                   return error_node();
                }
 
-               expression_node_ptr default_statement = error_node();
-
                if (token_is(token_t::e_lcrlbracket,prsrhlpr_t::e_hold))
                   default_statement = parse_multi_sequence("switch-default");
                else
@@ -22439,8 +22480,6 @@ namespace exprtk
                   return error_node();
                else if (!token_is(token_t::e_eof))
                {
-                  free_node(node_allocator_,default_statement);
-
                   set_error(
                      make_error(parser_error::e_syntax,
                                 current_token(),
@@ -22449,26 +22488,32 @@ namespace exprtk
 
                   return error_node();
                }
-
-               arg_list.push_back(default_statement);
+            }
+            else if (token_is(token_t::e_rcrlbracket))
                break;
+            else
+            {
+               set_error(
+                  make_error(parser_error::e_syntax,
+                             current_token(),
+                             "ERR084 - Expected '}' at end of switch statement",
+                             exprtk_error_location));
+
+               return error_node();
             }
          }
 
-         if (!token_is(token_t::e_rcrlbracket))
-         {
-            set_error(
-               make_error(parser_error::e_syntax,
-                          current_token(),
-                          "ERR084 - Expected '}' at end of switch statement",
-                          exprtk_error_location));
+         const bool default_statement_present = (0 != default_statement);
 
-            return error_node();
+         if (default_statement_present)
+         {
+            arg_list.push_back(default_statement);
          }
 
-         result = expression_generator_.switch_statement(arg_list);
+         result = expression_generator_.switch_statement(arg_list, (0 != default_statement));
 
          svd.delete_ptr = (0 == result);
+         defstmt_delete.delete_ptr = (0 == result);
 
          return result;
       }
@@ -23823,7 +23868,7 @@ namespace exprtk
 
       inline bool parse_igeneric_function_params(std::string& param_type_list,
                                                  std::vector<expression_node_ptr>& arg_list,
-                                                 const std::string function_name,
+                                                 const std::string& function_name,
                                                  igeneric_function<T>* function,
                                                  const type_checker& tc)
       {
@@ -27200,14 +27245,13 @@ namespace exprtk
 
          template <typename Allocator,
                    template <typename, typename> class Sequence>
-         inline expression_node_ptr switch_statement(Sequence<expression_node_ptr,Allocator>& arg_list)
+         inline expression_node_ptr switch_statement(Sequence<expression_node_ptr,Allocator>& arg_list, const bool default_statement_present)
          {
             if (arg_list.empty())
                return error_node();
             else if (
-                      !all_nodes_valid(arg_list)   ||
-                      (arg_list.size() < 3)        ||
-                      ((arg_list.size() % 2) != 1)
+                      !all_nodes_valid(arg_list) ||
+                      (!default_statement_present && (arg_list.size() < 2))
                     )
             {
                details::free_all_nodes(*node_allocator_,arg_list);
@@ -39015,8 +39059,8 @@ namespace exprtk
    namespace information
    {
       static const char* library = "Mathematical Expression Toolkit";
-      static const char* version = "2.7182818284590452353602874713526624977572470936999595749"
-                                   "669676277240766303535475945713821785251664274274663919320";
+      static const char* version = "2.718281828459045235360287471352662497757247093699959574966"
+                                   "96762772407663035354759457138217852516642742746639193200305";
       static const char* date    = "20200101";
 
       static inline std::string data()

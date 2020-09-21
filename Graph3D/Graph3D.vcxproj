@@ -128,6 +128,9 @@
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalOptions>/bigobj %(AdditionalOptions)</AdditionalOptions>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <EnableEnhancedInstructionSet>AdvancedVectorExtensions2</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Fast</FloatingPointModel>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -180,7 +183,6 @@
     </ClCompile>
     <ClCompile Include="src\Vendor\glm\detail\glm.cpp" />
     <ClCompile Include="src\Vendor\imgui\imgui.cpp" />
-    <ClCompile Include="src\Vendor\imgui\imgui_demo.cpp" />
     <ClCompile Include="src\Vendor\imgui\imgui_draw.cpp" />
     <ClCompile Include="src\Vendor\imgui\imgui_impl_glfw.cpp" />
     <ClCompile Include="src\Vendor\imgui\imgui_impl_opengl3.cpp" />
@@ -453,6 +455,8 @@
     <ClInclude Include="src\Graph3D\Timer.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="Axis.glsl" />
+    <None Include="Graph3D.glsl" />
     <None Include="src\Vendor\glm\detail\func_common.inl" />
     <None Include="src\Vendor\glm\detail\func_common_simd.inl" />
     <None Include="src\Vendor\glm\detail\func_exponential.inl" />

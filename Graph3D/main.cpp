@@ -11,13 +11,15 @@ unsigned int g_HEIGHT = 1000; //Window Height
 
 exprtk::parser<float> g_Parser; //Mathematical expression parser
 
-GLFWwindow* g_Window;
 
 std::vector<Graph3D> g_Graphs;
+GLFWwindow* g_Window;
+std::unique_ptr<ShaderProgram> g_Shader;
 
 //Matrix
-Camera g_Cam(glm::vec3(3.0f, -7.0f, 4.0f), glm::vec3(.0f, .0f, -1.0f), glm::vec3(.0f, 0.0f, 1.0f), 166.f , -25.f);
-glm::mat4 g_Proj = glm::perspective(glm::radians(45.0f), (float)g_WIDTH / g_HEIGHT, 0.01f, 100.0f);
+Camera g_Cam(glm::vec3(3.0f, -7.0f, 4.0f), glm::vec3(.0f, .0f, -1.0f), glm::vec3(.0f, 0.0f, 1.0f), 166.f, -25.f);
+glm::mat4 g_Proj = glm::perspective(glm::radians(45.0f), (float)g_WIDTH / g_HEIGHT, 0.01f, 200.0f);
+glm::mat4 g_ViewProj = g_Proj * g_Cam.GetViewMatrix();
 
 glm::vec4 GenRandomColor()
 {
@@ -30,26 +32,8 @@ glm::vec4 GenRandomColor()
 	return color;
 }
 
-size_t g_Alloc = 0;
-size_t g_Delet = 0;
-
-void* operator new(size_t size)
-{
-	g_Alloc += size;
-	return malloc(size);
-}
-
-void operator delete(void* ptr, size_t size)
-{
-	g_Delet += size;
-	free(ptr);
-}
-
-
 int main()
 {
-	srand((unsigned int)time(NULL));
-
 	//GLFW Setup
 	glfwInit();
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -85,7 +69,7 @@ int main()
 		io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
 		io.ConfigViewportsNoAutoMerge = true;
 		//io.ConfigDockingTabBarOnSingleWindows = true;
-			
+
 
 		// Setup Dear ImGui style
 		ImGui::StyleColorsDark();
@@ -108,12 +92,28 @@ int main()
 	glEnable(GL_LINE_SMOOTH); //Makes the line smoother
 	glEnable(GL_BLEND); //Enables the Blend Function
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); //Blend Function config
-	glLineWidth(2.f); //Line Width
+	glLineWidth(5.f); //Line Width
 
 	glPointSize(3.f);
 
 	//Depth Test
 	glEnable(GL_DEPTH_TEST);
+
+	glfwSetWindowFocusCallback(g_Window, [](GLFWwindow* window, int focused)
+		{
+			if (focused)
+			{
+				glfwSetInputMode(g_Window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+			}
+		});
+	glfwSetWindowSizeCallback(g_Window, [](GLFWwindow* window, int width, int height)
+		{
+			glViewport(0, 0, width, height);
+			g_WIDTH = width;
+			g_HEIGHT = height;
+			g_Proj = glm::perspective(glm::radians(45.0f), (float)g_WIDTH / g_HEIGHT, 0.01f, 200.0f);
+			g_ViewProj = g_Proj * g_Cam.GetViewMatrix();
+		});
 
 	//smooth things
 	float currentFrame = 0;
@@ -140,18 +140,15 @@ int main()
 	bool ConfirmDelete = false;
 	bool Deleting = false;
 	unsigned int DeletingIndex = -1;
+	long long unsigned int graphCount = 0;
 
-	glfwSetWindowFocusCallback(g_Window, [](GLFWwindow* window, int focused) 
-	{
-		if (focused)
-		{
-			glfwSetInputMode(g_Window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-		}
-	});
+
+	g_Shader = std::make_unique<ShaderProgram>("Graph3D.glsl");
 
 	//Draw Loop
-	while (!glfwWindowShouldClose(g_Window))
+	while (!glfwWindowShouldClose(g_Window) && glfwGetKey(g_Window, GLFW_KEY_DELETE) != GLFW_PRESS)
 	{
+		g_ViewProj = g_Proj * g_Cam.GetViewMatrix();
 		if (glfwGetKey(g_Window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 			glfwSetInputMode(g_Window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 
@@ -159,6 +156,7 @@ int main()
 		//Background color
 		glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
+		glClear(GL_DEPTH_BUFFER_BIT);
 
 		//Start the Dear ImGui frame
 		ImGui_ImplOpenGL3_NewFrame();
@@ -174,7 +172,7 @@ int main()
 		g_Cam.KeyboardMove(deltaTime);
 		plane.Draw();
 
-		for (const Graph3D& graph: g_Graphs)
+		for (const Graph3D& graph : g_Graphs)
 		{
 			graph.Draw();
 		}
@@ -182,10 +180,24 @@ int main()
 		//ImGui Draw
 		ImGui::Begin(ImGuiName);
 
-		ImGui::PushItemWidth(250.f);
-		ImGui::InputFloat3(LabelPosition, &camPos[0]);
+		ImGui::PushItemWidth(75.0f);
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.2f, 1.0f));
+		ImGui::InputFloat("X Pos", &camPos[0]);
+		ImGui::PopStyleColor();
+		ImGui::SameLine();
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.35f, 1.0f, 0.0f, 1.0f));
+		ImGui::InputFloat("Y Pos", &camPos[1]);
+		ImGui::PopStyleColor();
+		ImGui::SameLine();
+		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.55f, 1.0f, 1.0f));
+		ImGui::InputFloat("Z Pos", &camPos[2]);
+		ImGui::PopStyleColor();
 		ImGui::PopItemWidth();
 
+		ImGui::Spacing();
+		ImGui::Spacing();
+
+		plane.ImGuiDraw();
 		ImGui::Spacing();
 		ImGui::Separator();
 		ImGui::Spacing();
@@ -208,16 +220,9 @@ int main()
 				ImGui::SameLine();
 				if (ImGui::Button("Confirm"))
 				{
-					//size_t temp = g_Delet;
 					g_Graphs.erase(g_Graphs.begin() + DeletingIndex);
-					//std::cout << "Deleted: " << g_Delet - temp << std::endl;
-
-					for (unsigned int i = 0; i < g_Graphs.size(); i++)
-					{
-						g_Graphs[i].SetIds(i);
-					}
 					DeletingIndex = -1;
-					continue;
+					continue; //because of the ImguiDraw() call;
 				}
 				ImGui::SameLine();
 				if (ImGui::Button("Cancel"))
@@ -237,7 +242,7 @@ int main()
 		ImGui::ColorEdit4(LabelColor, &colorInput[0], ImGuiColorEditFlags_NoInputs + ImGuiColorEditFlags_NoLabel);
 		ImGui::SameLine();
 		//Expression input
-		ImGui::PushItemWidth(250.f);
+		ImGui::PushItemWidth(250.0f);
 		ImGui::PushID(LabelTextInput); //Pushs an ID for not enter a name in the ImGui::InputText()
 		bool EnteringExp = ImGui::InputText("", &expressionInput, ImGuiInputTextFlags_EnterReturnsTrue);
 		ImGui::PopID(); //ImGui PopID
@@ -245,15 +250,14 @@ int main()
 		ImGui::SameLine();
 		if ((ImGui::Button(LabelCompileButton) || EnteringExp) && expressionInput != "") //ImGui Input Text
 		{
-			//size_t temp = g_Alloc;
-			g_Graphs.emplace_back(expressionInput, colorInput, regionInput, g_Graphs.size());
-			//std::cout << "Alloc: " << g_Alloc - temp << std::endl;
+			g_Graphs.emplace_back(std::move(expressionInput), colorInput, regionInput, graphCount);
+			graphCount++;
 
 			expressionInput = "";
 			colorInput = GenRandomColor();
 			regionInput = glm::vec2(0.f, 0.f);
 		}
-		
+
 		ImGui::PushItemWidth(250.f);
 		ImGui::InputFloat2(LabelRegion, &regionInput[0]);
 		ImGui::PopItemWidth();
@@ -290,8 +294,6 @@ int main()
 	glfwTerminate();
 
 	g_Graphs.clear();
-	//std::cout << g_Alloc << "\n" << g_Delet << std::endl;
-
 
 	return 0;
 }
