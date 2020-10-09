@@ -13,6 +13,7 @@ exprtk::parser<float> g_Parser; //Mathematical expression parser
 
 
 std::vector<Graph3D> g_Graphs;
+//std::map<float, Graph3D> g_Graph;
 GLFWwindow* g_Window;
 std::unique_ptr<ShaderProgram> g_Shader;
 
@@ -89,15 +90,14 @@ int main()
 
 
 	//Line configuration
+	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_LINE_SMOOTH); //Makes the line smoother
+
 	glEnable(GL_BLEND); //Enables the Blend Function
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); //Blend Function config
+
 	glLineWidth(5.f); //Line Width
-
-	glPointSize(3.f);
-
-	//Depth Test
-	glEnable(GL_DEPTH_TEST);
+	glPointSize(5.f);
 
 	glfwSetWindowFocusCallback(g_Window, [](GLFWwindow* window, int focused)
 		{
@@ -154,14 +154,9 @@ int main()
 
 
 		//Background color
-		glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT);
 		glClear(GL_DEPTH_BUFFER_BIT);
-
-		//Start the Dear ImGui frame
-		ImGui_ImplOpenGL3_NewFrame();
-		ImGui_ImplGlfw_NewFrame();
-		ImGui::NewFrame();
+		glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
 
 		//Plane and Graphs Draw
 		currentFrame = (float)glfwGetTime();
@@ -170,112 +165,134 @@ int main()
 
 		g_Cam.MouseMove();
 		g_Cam.KeyboardMove(deltaTime);
-		plane.Draw();
 
+		plane.Draw();
 		for (const Graph3D& graph : g_Graphs)
 		{
 			graph.Draw();
 		}
 
 		//ImGui Draw
-		ImGui::Begin(ImGuiName);
-
-		ImGui::PushItemWidth(75.0f);
-		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.2f, 1.0f));
-		ImGui::InputFloat("X Pos", &camPos[0]);
-		ImGui::PopStyleColor();
-		ImGui::SameLine();
-		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.35f, 1.0f, 0.0f, 1.0f));
-		ImGui::InputFloat("Y Pos", &camPos[1]);
-		ImGui::PopStyleColor();
-		ImGui::SameLine();
-		ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.55f, 1.0f, 1.0f));
-		ImGui::InputFloat("Z Pos", &camPos[2]);
-		ImGui::PopStyleColor();
-		ImGui::PopItemWidth();
-
-		ImGui::Spacing();
-		ImGui::Spacing();
-
-		plane.ImGuiDraw();
-		ImGui::Spacing();
-		ImGui::Separator();
-		ImGui::Spacing();
-
-		//Graphs Control
-		for (unsigned int i = 0; i < g_Graphs.size(); i++)
 		{
-			std::string del = "Delete##" + std::to_string(i);
-			ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(.7f, 0.15f, 0.15f, 0.7f));
-			ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.f, 0.f, 0.f, 0.7f));
-			if (ImGui::Button(del.c_str()))
-			{
-				DeletingIndex = i;
-			}
-			ImGui::PopStyleColor();
+			//Start the Dear ImGui frame
+			ImGui_ImplOpenGL3_NewFrame();
+			ImGui_ImplGlfw_NewFrame();
+			ImGui::NewFrame();
+			
+			ImGui::Begin(ImGuiName);
+
+			ImGui::Text("Position");
+			ImGui::SameLine();
+
+			ImGui::PushItemWidth(55.0f);
+
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.2f, 1.0f));
+			ImGui::PushID("X Pos");
+			ImGui::InputFloat("", &camPos[0]);
+			ImGui::PopID();
 			ImGui::PopStyleColor();
 
-			if (DeletingIndex == i)
+			ImGui::SameLine();
+
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.35f, 1.0f, 0.0f, 1.0f));
+			ImGui::PushID("Y Pos");
+			ImGui::InputFloat("", &camPos[1]);
+			ImGui::PopID();
+			ImGui::PopStyleColor();
+
+			ImGui::SameLine();
+
+			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.55f, 1.0f, 1.0f));
+			ImGui::PushID("Z Pos");
+			ImGui::InputFloat("", &camPos[2]);
+			ImGui::PopID();
+			ImGui::PopStyleColor();
+
+			ImGui::PopItemWidth();
+
+			ImGui::Spacing();
+			ImGui::Spacing();
+
+			plane.ImGuiDraw();
+			ImGui::Spacing();
+			ImGui::Separator();
+			ImGui::Spacing();
+
+			//Graphs Control
+			for (unsigned int i = 0; i < g_Graphs.size(); i++)
 			{
-				ImGui::SameLine();
-				if (ImGui::Button("Confirm"))
+				std::string del = "Delete##" + std::to_string(i);
+				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(.7f, 0.15f, 0.15f, 0.7f));
+				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.f, 0.f, 0.f, 0.7f));
+				if (ImGui::Button(del.c_str()))
 				{
-					g_Graphs.erase(g_Graphs.begin() + DeletingIndex);
-					DeletingIndex = -1;
-					continue; //because of the ImguiDraw() call;
+					DeletingIndex = i;
 				}
-				ImGui::SameLine();
-				if (ImGui::Button("Cancel"))
+				ImGui::PopStyleColor();
+				ImGui::PopStyleColor();
+
+				if (DeletingIndex == i)
 				{
-					DeletingIndex = -1;
+					ImGui::SameLine();
+					if (ImGui::Button("Confirm"))
+					{
+						g_Graphs.erase(g_Graphs.begin() + DeletingIndex);
+						DeletingIndex = -1;
+						continue; //because of the ImguiDraw() call;
+					}
+					ImGui::SameLine();
+					if (ImGui::Button("Cancel"))
+					{
+						DeletingIndex = -1;
+					}
 				}
+
+				g_Graphs[i].ImguiDraw();
 			}
 
-			g_Graphs[i].ImguiDraw();
-		}
+			//New Graph Input
+			ImGui::Text(NewGraphText);
+			ImGui::Spacing();
+			ImGui::Spacing();
 
-		//New Graph Input
-		ImGui::Text(NewGraphText);
-		ImGui::Spacing();
-		ImGui::Spacing();
+			ImGui::ColorEdit4(LabelColor, &colorInput[0], ImGuiColorEditFlags_NoInputs + ImGuiColorEditFlags_NoLabel);
+			ImGui::SameLine();
+			//Expression input
+			ImGui::PushItemWidth(250.0f);
+			ImGui::PushID(LabelTextInput); //Pushs an ID for not enter a name in the ImGui::InputText()
+			bool EnteringExp = ImGui::InputText("", &expressionInput, ImGuiInputTextFlags_EnterReturnsTrue);
+			ImGui::PopID(); //ImGui PopID
+			ImGui::PopItemWidth();
+			ImGui::SameLine();
+			if ((ImGui::Button(LabelCompileButton) || EnteringExp) && expressionInput != "") //ImGui Input Text
+			{
+				g_Graphs.emplace_back(std::move(expressionInput), colorInput, regionInput, graphCount);
+				graphCount++;
 
-		ImGui::ColorEdit4(LabelColor, &colorInput[0], ImGuiColorEditFlags_NoInputs + ImGuiColorEditFlags_NoLabel);
-		ImGui::SameLine();
-		//Expression input
-		ImGui::PushItemWidth(250.0f);
-		ImGui::PushID(LabelTextInput); //Pushs an ID for not enter a name in the ImGui::InputText()
-		bool EnteringExp = ImGui::InputText("", &expressionInput, ImGuiInputTextFlags_EnterReturnsTrue);
-		ImGui::PopID(); //ImGui PopID
-		ImGui::PopItemWidth();
-		ImGui::SameLine();
-		if ((ImGui::Button(LabelCompileButton) || EnteringExp) && expressionInput != "") //ImGui Input Text
-		{
-			g_Graphs.emplace_back(std::move(expressionInput), colorInput, regionInput, graphCount);
-			graphCount++;
+				expressionInput = "";
+				colorInput = GenRandomColor();
+				regionInput = glm::vec2(0.f, 0.f);
+			}
 
-			expressionInput = "";
-			colorInput = GenRandomColor();
-			regionInput = glm::vec2(0.f, 0.f);
-		}
+			ImGui::PushItemWidth(250.f);
+			ImGui::InputFloat2(LabelRegion, &regionInput[0]);
+			ImGui::PopItemWidth();
 
-		ImGui::PushItemWidth(250.f);
-		ImGui::InputFloat2(LabelRegion, &regionInput[0]);
-		ImGui::PopItemWidth();
+			ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);//Frame Time and FPS
+			ImGui::End();
 
-		ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);//Frame Time and FPS
-		ImGui::End();
+			//ImGui Rendering
+			ImGui::Render();
+			ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
-		//ImGui Rendering
-		ImGui::Render();
-		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-
-		//ImGui window backup
-		if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-		{
-			GLFWwindow* backup_current_context = glfwGetCurrentContext();
-			ImGui::UpdatePlatformWindows();
-			ImGui::RenderPlatformWindowsDefault();
-			glfwMakeContextCurrent(backup_current_context);
+			//ImGui window backup
+			if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+			{
+				GLFWwindow* backup_current_context = glfwGetCurrentContext();
+				ImGui::UpdatePlatformWindows();
+				ImGui::RenderPlatformWindowsDefault();
+				glfwMakeContextCurrent(backup_current_context);
+			}
 		}
 
 		//Buffer

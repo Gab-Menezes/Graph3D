@@ -13,22 +13,22 @@ class Graph3D
 {
 public:
 	Graph3D(std::string&& inputString, const glm::vec4& color, const glm::vec2& pos, long long unsigned int id); //Graph3D Constructor
-	Graph3D(const Graph3D& rhs); //= Operator Overload
-	Graph3D(Graph3D&& rhs) noexcept; //= Operator Overload
-	Graph3D& operator=(const Graph3D& rhs); //= Operator Overload
-	Graph3D& operator=(Graph3D&& rhs) noexcept; //= Operator Overload
+	Graph3D(const Graph3D& rhs); //Copy Constructor
+	Graph3D(Graph3D&& rhs) noexcept; //Move Constructor
+	Graph3D& operator=(const Graph3D& rhs); //= Operator Overload Copy
+	Graph3D& operator=(Graph3D&& rhs) noexcept; //= Operator Overload Move
 
 	~Graph3D() = default; //Graph3D Destructor
 
 	void Draw() const; //Draws the Graph3D
 	void ImguiDraw();
 
+	glm::vec3 GetTranslate() const { return m_Translate; }
 private:
 	long long unsigned int m_Id;
 	std::string m_sId;
 	glm::vec4 m_Color; //Color vector
 	glm::vec2 m_Region, m_PrevRegion; //Range of draw and evaluation of the Graph3D
-	//std::unique_ptr<Expression> m_Expression; //Expression Shared Pointer
 	Expression m_Expression;
 	std::string m_InputString;
 	

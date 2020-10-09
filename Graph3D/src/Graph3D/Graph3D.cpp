@@ -140,8 +140,8 @@ void Graph3D::Draw() const
 		}
 		else
 		{
-			m_VBO->Bind(); //Binds the vertex buffer
 			m_VAO->Bind(); //Binds the vertex array
+			m_VBO->Bind(); //Binds the vertex buffer
 
 			glDrawArrays(GL_POINTS, 0, m_Vertices.size() / 3); //Draw the Graph3D (OpenGL call)
 		}
@@ -292,15 +292,17 @@ void Graph3D::SetIndexBuffer()
 	m_Index.reserve(6 * (n - 1) * (n - 1));
 	for (unsigned int i = 0; i < n - 1; i++)
 	{
+		unsigned int in = i * n;
 		for (unsigned int j = 0; j < n - 1; j++)
 		{
-			m_Index.push_back(i * n + j);
-			m_Index.push_back(i * n + j + n);
-			m_Index.push_back(i * n + j + 1);
+			unsigned int offset = in + j;
+			m_Index.push_back(offset);
+			m_Index.push_back(offset + n);
+			m_Index.push_back(offset + 1);
 
-			m_Index.push_back(i * n + j + 1);
-			m_Index.push_back(i * n + j + 1 + n);
-			m_Index.push_back(i * n + j + n);
+			m_Index.push_back(offset + 1);
+			m_Index.push_back(offset + 1 + n);
+			m_Index.push_back(offset + n);
 		}
 	}
 }
