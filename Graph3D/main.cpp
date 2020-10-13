@@ -1,22 +1,19 @@
 //Includes
 #include <pch.h>
+#include "Axis.h"
+#include "Surface.h"
 #include "Plane3D.h"
 #include "Graph3D.h"
 #include "Camera.h"
 #include "ShaderProgram.h"
+#include "Timer.h"
 
 //Global Varialbes
+GLFWwindow* g_Window;
 unsigned int g_WIDTH = 1000; //Window Witdh
 unsigned int g_HEIGHT = 1000; //Window Height
-
-exprtk::parser<float> g_Parser; //Mathematical expression parser
-
-
-std::vector<Graph3D> g_Graphs;
-//std::map<float, Graph3D> g_Graph;
-GLFWwindow* g_Window;
 std::unique_ptr<ShaderProgram> g_Shader;
-
+std::vector<Graph3D> g_Graphs;
 //Matrix
 Camera g_Cam(glm::vec3(3.0f, -7.0f, 4.0f), glm::vec3(.0f, .0f, -1.0f), glm::vec3(.0f, 0.0f, 1.0f), 166.f, -25.f);
 glm::mat4 g_Proj = glm::perspective(glm::radians(45.0f), (float)g_WIDTH / g_HEIGHT, 0.01f, 200.0f);
@@ -35,6 +32,7 @@ glm::vec4 GenRandomColor()
 
 int main()
 {
+	srand(time(nullptr));
 	//GLFW Setup
 	glfwInit();
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -51,7 +49,6 @@ int main()
 	glfwMakeContextCurrent(g_Window);
 	glfwSwapInterval(0);//0 -> Vsync Off | 1 -> Vsync On
 	glfwSetInputMode(g_Window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
-
 	//GLAD Setup
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
 	{
@@ -59,12 +56,11 @@ int main()
 		return -1;
 	}
 
-	glViewport(0, 0, g_WIDTH, g_HEIGHT); //Position coordinates -> Screen coordinates
-
 	//ImGui Setup
 	ImGui::CreateContext();
 	ImGuiIO& io = ImGui::GetIO(); (void)io;
 	{
+
 		io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
 		io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;           // Enable Docking
 		io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;         // Enable Multi-Viewport / Platform Windows
@@ -88,14 +84,12 @@ int main()
 		ImGui_ImplOpenGL3_Init("#version 450");
 	}
 
-
 	//Line configuration
+	glViewport(0, 0, g_WIDTH, g_HEIGHT); //Position coordinates -> Screen coordinates
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_LINE_SMOOTH); //Makes the line smoother
-
 	glEnable(GL_BLEND); //Enables the Blend Function
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); //Blend Function config
-
 	glLineWidth(5.f); //Line Width
 	glPointSize(5.f);
 
@@ -121,12 +115,16 @@ int main()
 	float deltaTime = 0;
 
 	//variables
+	g_Shader = std::make_unique<ShaderProgram>("Graph3D.glsl");
+
+	Axis axis;
 	Plane3D plane;
 
 	glm::vec3& camPos = g_Cam.GetCamPosRef();
 	std::string expressionInput = "";
 	glm::vec4 colorInput = GenRandomColor();
 	glm::vec2 regionInput(0.f, 0.f);
+	std::string var1Input = "x", var2Input = "y";
 
 	const char* LabelPosition = "Position##Input"; //Expression input label string
 	const char* LabelTextInput = "Expression##Input"; //Expression input label string
@@ -142,34 +140,47 @@ int main()
 	unsigned int DeletingIndex = -1;
 	long long unsigned int graphCount = 0;
 
-
-	g_Shader = std::make_unique<ShaderProgram>("Graph3D.glsl");
-
 	//Draw Loop
 	while (!glfwWindowShouldClose(g_Window) && glfwGetKey(g_Window, GLFW_KEY_DELETE) != GLFW_PRESS)
 	{
-		g_ViewProj = g_Proj * g_Cam.GetViewMatrix();
 		if (glfwGetKey(g_Window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
 			glfwSetInputMode(g_Window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 
-
-		//Background color
-		glClear(GL_COLOR_BUFFER_BIT);
-		glClear(GL_DEPTH_BUFFER_BIT);
-		glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
-
-		//Plane and Graphs Draw
-		currentFrame = (float)glfwGetTime();
-		deltaTime = currentFrame - lastFrame;
-		lastFrame = currentFrame;
-
-		g_Cam.MouseMove();
-		g_Cam.KeyboardMove(deltaTime);
-
-		plane.Draw();
-		for (const Graph3D& graph : g_Graphs)
+		//Clear Buffers
 		{
-			graph.Draw();
+			glClear(GL_COLOR_BUFFER_BIT);
+			glClear(GL_DEPTH_BUFFER_BIT);
+			glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+		}
+
+		//Movement
+		{
+			currentFrame = (float)glfwGetTime();
+			deltaTime = currentFrame - lastFrame;
+			lastFrame = currentFrame;
+
+			g_Cam.MouseMove();
+			g_Cam.KeyboardMove(deltaTime);
+		}
+
+		//Axis, Plane and Graphs Draw | ViewProj update
+		{
+			g_ViewProj = g_Proj * g_Cam.GetViewMatrix();
+
+			axis.Draw();
+			std::multimap<const bool, const Surface*> order;
+			for (const Graph3D& graph : g_Graphs)
+			{
+				order.emplace(graph.IsSolid(), dynamic_cast<const Surface*>(&graph));
+			}
+			order.emplace(plane.IsSolid(), dynamic_cast<const Surface*>(&plane));
+			for (auto it = order.rbegin(); it != order.rend(); it++)
+			{
+				if (!it->first) glDepthMask(GL_FALSE);
+				it->second->Draw();
+				if (!it->first) glDepthMask(GL_TRUE);
+			}
+
 		}
 
 		//ImGui Draw
@@ -181,104 +192,145 @@ int main()
 			
 			ImGui::Begin(ImGuiName);
 
-			ImGui::Text("Position");
-			ImGui::SameLine();
+			//Position Control
+			{
+				ImGui::Text("Position");
+				ImGui::SameLine();
 
-			ImGui::PushItemWidth(55.0f);
+				ImGui::PushItemWidth(55.0f);
 
-			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.2f, 1.0f));
-			ImGui::PushID("X Pos");
-			ImGui::InputFloat("", &camPos[0]);
-			ImGui::PopID();
-			ImGui::PopStyleColor();
+				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.0f, 0.2f, 1.0f));
+				ImGui::PushID("X Pos");
+				ImGui::InputFloat("", &camPos[0]);
+				ImGui::PopID();
+				ImGui::PopStyleColor();
 
-			ImGui::SameLine();
+				ImGui::SameLine();
 
-			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.35f, 1.0f, 0.0f, 1.0f));
-			ImGui::PushID("Y Pos");
-			ImGui::InputFloat("", &camPos[1]);
-			ImGui::PopID();
-			ImGui::PopStyleColor();
+				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.35f, 1.0f, 0.0f, 1.0f));
+				ImGui::PushID("Y Pos");
+				ImGui::InputFloat("", &camPos[1]);
+				ImGui::PopID();
+				ImGui::PopStyleColor();
 
-			ImGui::SameLine();
+				ImGui::SameLine();
 
-			ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.55f, 1.0f, 1.0f));
-			ImGui::PushID("Z Pos");
-			ImGui::InputFloat("", &camPos[2]);
-			ImGui::PopID();
-			ImGui::PopStyleColor();
+				ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 0.55f, 1.0f, 1.0f));
+				ImGui::PushID("Z Pos");
+				ImGui::InputFloat("", &camPos[2]);
+				ImGui::PopID();
+				ImGui::PopStyleColor();
 
-			ImGui::PopItemWidth();
-
+				ImGui::PopItemWidth();
+			}
+			
 			ImGui::Spacing();
+			ImGui::Separator();
 			ImGui::Spacing();
 
-			plane.ImGuiDraw();
+			//Plane/Axis Control
+			if (ImGui::CollapsingHeader("Plane/Axis"))
+			{
+				plane.ImGuiDraw();
+				axis.ImGuiDraw();
+			}
+
 			ImGui::Spacing();
 			ImGui::Separator();
 			ImGui::Spacing();
 
 			//Graphs Control
-			for (unsigned int i = 0; i < g_Graphs.size(); i++)
+			if (ImGui::CollapsingHeader("Graphs", ImGuiTreeNodeFlags_DefaultOpen))
 			{
-				std::string del = "Delete##" + std::to_string(i);
-				ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(.7f, 0.15f, 0.15f, 0.7f));
-				ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.f, 0.f, 0.f, 0.7f));
-				if (ImGui::Button(del.c_str()))
+				//New Graph
 				{
-					DeletingIndex = i;
-				}
-				ImGui::PopStyleColor();
-				ImGui::PopStyleColor();
 
-				if (DeletingIndex == i)
+					//New Graph Input
+					ImGui::Text(NewGraphText);
+					ImGui::Spacing();
+					ImGui::Spacing();
+
+					ImGui::ColorEdit4(LabelColor, &colorInput[0], ImGuiColorEditFlags_NoInputs + ImGuiColorEditFlags_NoLabel);
+					ImGui::SameLine();
+					//Expression input
+					ImGui::PushItemWidth(250.0f);
+					ImGui::PushID(LabelTextInput); //Pushs an ID for not enter a name in the ImGui::InputText()
+					bool EnteringExp = ImGui::InputText("", &expressionInput, ImGuiInputTextFlags_EnterReturnsTrue);
+					ImGui::PopID(); //ImGui PopID
+					ImGui::PopItemWidth();
+					ImGui::SameLine();
+					if ((ImGui::Button(LabelCompileButton) || EnteringExp) && expressionInput != "") //ImGui Input Text
+					{
+						g_Graphs.emplace_back(std::move(expressionInput), std::move(var1Input), std::move(var2Input), colorInput, regionInput, graphCount);
+						graphCount++;
+
+						expressionInput = "";
+						var1Input = "x";
+						var2Input = "y";
+						colorInput = GenRandomColor();
+						regionInput = glm::vec2(0.f, 0.f);
+					}
+
+					ImGui::PushItemWidth(70.f);
+					ImGui::PushID("X Axis");
+					ImGui::InputText("", &var1Input);
+					ImGui::PopID();
+					ImGui::SameLine();
+					ImGui::PushID("Y Axis");
+					ImGui::InputText("", &var2Input);
+					ImGui::PopID();
+					ImGui::PopItemWidth();
+					ImGui::SameLine();
+					ImGui::Text("Variable Names");
+
+					ImGui::Spacing();
+					ImGui::Spacing();
+
+					ImGui::PushItemWidth(200.f);
+					ImGui::InputFloat2(LabelRegion, &regionInput[0]);
+					ImGui::PopItemWidth();
+
+				}
+
+				ImGui::Spacing();
+				ImGui::Separator();
+				ImGui::Spacing();
+
+				//Graphs Control
+				for (unsigned int i = 0; i < g_Graphs.size(); i++)
 				{
-					ImGui::SameLine();
-					if (ImGui::Button("Confirm"))
+					std::string del = "Delete##" + std::to_string(i);
+					ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(.7f, 0.15f, 0.15f, 0.7f));
+					ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1.f, 0.f, 0.f, 0.7f));
+					if (ImGui::Button(del.c_str()))
 					{
-						g_Graphs.erase(g_Graphs.begin() + DeletingIndex);
-						DeletingIndex = -1;
-						continue; //because of the ImguiDraw() call;
+						DeletingIndex = i;
 					}
-					ImGui::SameLine();
-					if (ImGui::Button("Cancel"))
+					ImGui::PopStyleColor();
+					ImGui::PopStyleColor();
+
+					if (DeletingIndex == i)
 					{
-						DeletingIndex = -1;
+						ImGui::SameLine();
+						if (ImGui::Button("Confirm"))
+						{
+							g_Graphs.erase(g_Graphs.begin() + DeletingIndex);
+							DeletingIndex = -1;
+							continue; //because of the ImguiDraw() call;
+						}
+						ImGui::SameLine();
+						if (ImGui::Button("Cancel"))
+						{
+							DeletingIndex = -1;
+						}
 					}
+
+					g_Graphs[i].ImGuiDraw();
 				}
-
-				g_Graphs[i].ImguiDraw();
 			}
-
-			//New Graph Input
-			ImGui::Text(NewGraphText);
-			ImGui::Spacing();
-			ImGui::Spacing();
-
-			ImGui::ColorEdit4(LabelColor, &colorInput[0], ImGuiColorEditFlags_NoInputs + ImGuiColorEditFlags_NoLabel);
-			ImGui::SameLine();
-			//Expression input
-			ImGui::PushItemWidth(250.0f);
-			ImGui::PushID(LabelTextInput); //Pushs an ID for not enter a name in the ImGui::InputText()
-			bool EnteringExp = ImGui::InputText("", &expressionInput, ImGuiInputTextFlags_EnterReturnsTrue);
-			ImGui::PopID(); //ImGui PopID
-			ImGui::PopItemWidth();
-			ImGui::SameLine();
-			if ((ImGui::Button(LabelCompileButton) || EnteringExp) && expressionInput != "") //ImGui Input Text
-			{
-				g_Graphs.emplace_back(std::move(expressionInput), colorInput, regionInput, graphCount);
-				graphCount++;
-
-				expressionInput = "";
-				colorInput = GenRandomColor();
-				regionInput = glm::vec2(0.f, 0.f);
-			}
-
-			ImGui::PushItemWidth(250.f);
-			ImGui::InputFloat2(LabelRegion, &regionInput[0]);
-			ImGui::PopItemWidth();
 
 			ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);//Frame Time and FPS
+			
 			ImGui::End();
 
 			//ImGui Rendering
@@ -309,8 +361,6 @@ int main()
 
 	//GLFW finalization
 	glfwTerminate();
-
-	g_Graphs.clear();
 
 	return 0;
 }

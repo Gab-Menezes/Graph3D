@@ -1,20 +1,21 @@
 #include <pch.h>
-#include <Graph3D.h>
-#include <Camera.h>
-#include <Renderer.h>
-#include <Timer.h>
+#include "Graph3D.h"
+#include "Camera.h"
+#include "Renderer.h"
 
 extern glm::mat4 g_ViewProj;
 extern std::unique_ptr<ShaderProgram> g_Shader;
 
-Graph3D::Graph3D(std::string&& inputString, const glm::vec4& color, const glm::vec2& pos, long long unsigned int id) :
+Graph3D::Graph3D(std::string&& inputString, std::string&& var1, std::string&& var2, const glm::vec4& color, const glm::vec2& pos, long long unsigned int id) :
 	m_Id(id),
 	m_sId(std::to_string(id)),
 	m_Color(color),
 	m_Region(pos),
 	m_PrevRegion(pos),
-	m_Expression(std::move(inputString)),
-	m_InputString(m_Expression.GetStrExpression())
+	m_Expression(std::move(inputString), std::move(var1), std::move(var2)),
+	m_InputString(m_Expression.GetStrExpression()),
+	m_InputVar1(m_Expression.GetVar1()),
+	m_InputVar2(m_Expression.GetVar2())
 {
 	CalculateGraph();
 }
@@ -28,6 +29,8 @@ Graph3D::Graph3D(const Graph3D& rhs)
 	m_PrevRegion = rhs.m_PrevRegion;
 	m_Expression = rhs.m_Expression;
 	m_InputString = rhs.m_InputString;
+	m_InputVar1 = rhs.m_InputVar1;
+	m_InputVar2 = rhs.m_InputVar2;
 	m_Show = rhs.m_Show;
 	m_Mesh = rhs.m_Mesh;
 	m_Grid = rhs.m_Grid;
@@ -46,7 +49,6 @@ Graph3D::Graph3D(const Graph3D& rhs)
 
 Graph3D::Graph3D(Graph3D&& rhs) noexcept
 {
-	std::cout << "Move\n";
 	m_Id = rhs.m_Id;
 	m_sId = std::move(rhs.m_sId);
 	m_Color = rhs.m_Color;
@@ -54,6 +56,8 @@ Graph3D::Graph3D(Graph3D&& rhs) noexcept
 	m_PrevRegion = rhs.m_PrevRegion;
 	m_Expression = std::move(rhs.m_Expression);
 	m_InputString = std::move(rhs.m_InputString);
+	m_InputVar1 = std::move(rhs.m_InputVar1);
+	m_InputVar2 = std::move(rhs.m_InputVar2);
 	m_Show = rhs.m_Show;
 	m_Mesh = rhs.m_Mesh;
 	m_Grid = rhs.m_Grid;
@@ -79,6 +83,8 @@ Graph3D& Graph3D::operator=(const Graph3D& rhs)
 	m_PrevRegion = rhs.m_PrevRegion;
 	m_Expression = rhs.m_Expression;
 	m_InputString = rhs.m_InputString;
+	m_InputVar1 = rhs.m_InputVar1;
+	m_InputVar2 = rhs.m_InputVar2;
 	m_Show = rhs.m_Show;
 	m_Mesh = rhs.m_Mesh;
 	m_Grid = rhs.m_Grid;
@@ -99,7 +105,6 @@ Graph3D& Graph3D::operator=(const Graph3D& rhs)
 
 Graph3D& Graph3D::operator=(Graph3D&& rhs) noexcept
 {
-	std::cout << "Move=\n";
 	m_Id = rhs.m_Id;
 	m_sId = std::move(rhs.m_sId);
 	m_Color = rhs.m_Color;
@@ -107,6 +112,8 @@ Graph3D& Graph3D::operator=(Graph3D&& rhs) noexcept
 	m_PrevRegion = rhs.m_PrevRegion;
 	m_Expression = std::move(rhs.m_Expression);
 	m_InputString = std::move(rhs.m_InputString);
+	m_InputVar1 = std::move(rhs.m_InputVar1);
+	m_InputVar2 = std::move(rhs.m_InputVar2);
 	m_Show = rhs.m_Show;
 	m_Mesh = rhs.m_Mesh;
 	m_Grid = rhs.m_Grid;
@@ -153,7 +160,7 @@ void Graph3D::Draw() const
 	}
 }
 
-void Graph3D::ImguiDraw()
+void Graph3D::ImGuiDraw()
 {
 	//Color picker
 	auto ColorFlags = ImGuiColorEditFlags_NoInputs + ImGuiColorEditFlags_NoLabel;//Color Flags
@@ -176,13 +183,30 @@ void Graph3D::ImguiDraw()
 		ImGui::PopItemWidth();
 		ImGui::SameLine();
 		std::string LabelCompile = "Enter##" + m_sId;
-		if ((ImGui::Button(LabelCompile.c_str()) || InputExp) && m_InputString != m_Expression.GetStrExpression())
+		if ((ImGui::Button(LabelCompile.c_str()) || InputExp) && 
+			(m_InputString != m_Expression.GetStrExpression() || m_InputVar1 == m_Expression.GetVar1() || m_InputVar2 == m_Expression.GetVar2()))
 		{
 			HeaderLabel = m_InputString + "##" + m_sId;
-			m_Expression.SetExpression(m_InputString); //Sets the string expression of m_Expression to strExp
+			//TODO: fix the variables
+			m_Expression.SetExpression(m_InputString, m_InputVar1, m_InputVar2); //Sets the string expression of m_Expression to strExp
 
 			CalculateGraph();
 		}
+
+		std::string LabelVar1 = "X Axis##" + m_sId;
+		std::string LabelVar2 = "Y Axis##" + m_sId;
+		ImGui::PushItemWidth(70.f);
+		ImGui::PushID(LabelVar1.c_str());
+		ImGui::InputText("", &m_InputVar1);
+		ImGui::PopID();
+		ImGui::SameLine();
+		ImGui::PushID(LabelVar2.c_str());
+		ImGui::InputText("", &m_InputVar2);
+		ImGui::PopID();
+		ImGui::PopItemWidth();
+		ImGui::SameLine();
+		ImGui::Text("Variable Names");
+
 
 		std::string LabelShow = "Show##" + m_sId;
 		ImGui::Checkbox(LabelShow.c_str(), &m_Show); //ImGui Checkbox
@@ -245,9 +269,9 @@ void Graph3D::ImguiDraw()
 		if (change)
 		{
 			m_Model = glm::translate(glm::mat4(1.f), m_Translate);
-			m_Model = glm::rotate(m_Model, glm::radians(m_Angle.x), glm::vec3(1.f, 0.f, 0.f));
-			m_Model = glm::rotate(m_Model, glm::radians(m_Angle.y), glm::vec3(0.f, 1.f, 0.f));
 			m_Model = glm::rotate(m_Model, glm::radians(m_Angle.z), glm::vec3(0.f, 0.f, 1.f));
+			m_Model = glm::rotate(m_Model, glm::radians(m_Angle.y), glm::vec3(0.f, 1.f, 0.f));
+			m_Model = glm::rotate(m_Model, glm::radians(m_Angle.x), glm::vec3(1.f, 0.f, 0.f));
 			m_Model = glm::scale(m_Model, glm::vec3(m_Scale));
 		}
 
@@ -261,6 +285,11 @@ void Graph3D::ImguiDraw()
 	ImGui::Spacing();
 	ImGui::Separator();
 	ImGui::Spacing();
+}
+
+bool Graph3D::IsSolid() const
+{
+	return m_Color.a == 1.f;
 }
 
 void Graph3D::SetOpenGLObjects()

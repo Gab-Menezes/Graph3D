@@ -1,8 +1,10 @@
 #pragma once
 #include <iostream>
 #include <vector>
+#include <array>
 #include <string>
 #include <utility>
+#include <map>
 #include <algorithm>
 #include <memory>
 #include <sstream>
@@ -10,6 +12,7 @@
 #include <limits>
 #include <chrono>
 #include <thread>
+#include <time.h>
 
 #include <Glad/glad.h>
 #include <GLFW/glfw3.h>

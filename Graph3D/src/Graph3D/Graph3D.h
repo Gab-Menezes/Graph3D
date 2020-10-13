@@ -1,18 +1,19 @@
 #pragma once
 //Includes
 #include <pch.h>
-#include <Expression.h>
+#include "Expression.h"
+#include "Surface.h"
 
-#include <VertexBuffer.h>
-#include <VertexArray.h>
-#include <VertexBufferAttLayout.h>
-#include <ShaderProgram.h>
-#include <IndexBuffer.h>
+#include "VertexBuffer.h"
+#include "VertexArray.h"
+#include "VertexBufferAttLayout.h"
+#include "ShaderProgram.h"
+#include "IndexBuffer.h"
 
-class Graph3D
+class Graph3D : public Surface
 {
 public:
-	Graph3D(std::string&& inputString, const glm::vec4& color, const glm::vec2& pos, long long unsigned int id); //Graph3D Constructor
+	Graph3D(std::string&& inputString, std::string&& var1, std::string&& var2, const glm::vec4& color, const glm::vec2& pos, long long unsigned int id); //Graph3D Constructor
 	Graph3D(const Graph3D& rhs); //Copy Constructor
 	Graph3D(Graph3D&& rhs) noexcept; //Move Constructor
 	Graph3D& operator=(const Graph3D& rhs); //= Operator Overload Copy
@@ -20,17 +21,16 @@ public:
 
 	~Graph3D() = default; //Graph3D Destructor
 
-	void Draw() const; //Draws the Graph3D
-	void ImguiDraw();
-
-	glm::vec3 GetTranslate() const { return m_Translate; }
+	void Draw() const override; //Draws the Graph3D
+	void ImGuiDraw() override;
+	bool IsSolid() const override;
 private:
 	long long unsigned int m_Id;
 	std::string m_sId;
 	glm::vec4 m_Color; //Color vector
 	glm::vec2 m_Region, m_PrevRegion; //Range of draw and evaluation of the Graph3D
 	Expression m_Expression;
-	std::string m_InputString;
+	std::string m_InputString, m_InputVar1, m_InputVar2;
 	
 	//Member variables
 	bool m_Show = true, m_Mesh = false, m_Grid = true;
